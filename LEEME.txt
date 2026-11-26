@@ -1,0 +1,19 @@
+RONIN · ORIGINAL SOUNDTRACK
+
+1. Extrae el ZIP completo en una carpeta.
+2. Abre index.html con Chrome, Edge, Firefox u otro navegador moderno.
+3. Selecciona una canción o pulsa el botón verde de reproducción.
+
+No requiere instalar nada, ejecutar un servidor ni tener internet.
+Mantén index.html, styles.css, script.js y la carpeta audio en el mismo lugar.
+
+Controles:
+- Reproducir / pausar, anterior / siguiente.
+- Retroceder / adelantar 10 segundos; barra de progreso para ir a otro momento.
+- Volumen, silencio, aleatorio y repetición (lista o canción).
+- Buscar por título o capítulo.
+- Teclado (fuera de los controles): espacio, flechas izquierda/derecha para 10 segundos y arriba/abajo para volumen.
+
+Los MP3 son los 10 archivos originales proporcionados, con sus nombres originales, incluidos espacios y mayúsculas. El nombre visual Ronin es provisional y se puede cambiar en el HTML.
+
+Si no suena, revisa el volumen del sistema y del reproductor. No abras index.html directamente dentro del ZIP: primero extrae todo.

@@ -1,0 +1,49 @@
+'use strict';
+const songs = [
+  {title:'Tema principal',category:'Menú principal',file:'Theme Principal.mp3',duration:209.880,art:'main'},
+  {title:'Combate 1',category:'Duelo 01',file:'Combate 1.mp3',duration:174.408,art:'1'},
+  {title:'Combate 2',category:'Duelo 02',file:'Combate 2.mp3',duration:173.856,art:'2'},
+  {title:'Combate 3',category:'Duelo 03',file:'Combate 3.mp3',duration:89.616,art:'3'},
+  {title:'Combate 4',category:'Duelo 04',file:'combate 4.mp3',duration:149.880,art:'4'},
+  {title:'Combate 5',category:'Duelo 05',file:'combate 5.mp3',duration:120.048,art:'5'},
+  {title:'Combate 6',category:'Duelo 06',file:'combate 6.mp3',duration:119.880,art:'6'},
+  {title:'Combate 7',category:'Duelo 07',file:'combate 7.mp3',duration:187.656,art:'7'},
+  {title:'Combate 8 · Final',category:'Jefe final',file:'Combate 8 Final.mp3',duration:150,art:'8'},
+  {title:'Créditos',category:'Créditos finales',file:'Creditos.mp3',duration:119.928,art:'credits'}
+];
+const $ = id => document.getElementById(id);
+const audio = $('audio'), progress = $('progress'), volume = $('volume');
+let current = 0, shuffle = false, repeat = 0, history = [], queue = [], toastTimer, lastVolume = .75;
+const fmt = s => {s = Math.max(0,Math.floor(Number(s)||0)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+function icon(button,name,label){button.querySelector('use').setAttribute('href','#icon-'+name);if(label){button.title=label;button.setAttribute('aria-label',label);}}
+function paint(input){let ratio=(Number(input.value)-Number(input.min))/(Number(input.max)-Number(input.min));input.style.setProperty('--fill',`${Math.max(0,Math.min(1,ratio||0))*100}%`);}
+function art(el,track){el.className=el.className.replace(/\bart-(?:main|credits|[1-8])\b/g,'').trim()+' art-'+track.art;}
+function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{$('toast').hidden=true;},3500);}
+function makeQueue(){queue=songs.map((_,i)=>i).filter(i=>i!==current);for(let i=queue.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[queue[i],queue[j]]=[queue[j],queue[i]];}}
+function upcoming(){if(repeat===2)return current;if(shuffle){if(!queue.length&&repeat===1)makeQueue();return queue[0]??null;}return current+1<songs.length?current+1:repeat===1?0:null;}
+function updateNext(){const n=upcoming();$('upNext').hidden=n===null;if(n!==null){const s=songs[n];$('upNextTitle').textContent=s.title;$('upNextCategory').textContent=s.category;art($('upNextArt'),s);}}
+function render(){const query=normalize($('search').value);const filtered=songs.map((song,i)=>({song,i})).filter(({song})=>normalize(song.title+' '+song.category).includes(query));$('noResults').hidden=filtered.length>0;
+$('tracks').innerHTML=filtered.map(({song,i})=>{const active=i===current, playing=active&&!audio.paused&&!audio.ended;return `<button class="track-row${active?' current':''}" data-index="${i}" aria-label="${playing?'Pausar':'Reproducir'} ${song.title}" ${active?'aria-current="true"':''}><span class="track-index">${playing?'<span class="equalizer" aria-hidden="true"><i></i><i></i><i></i></span>':`<span class="number">${i+1}</span>`}<svg aria-hidden="true"><use href="#icon-${playing?'pause':'play'}"/></svg></span><span class="track-info"><span class="art miniature art-${song.art}" aria-hidden="true"><span></span></span><span><strong class="track-name">${song.title}</strong><small>Ronin · OST</small></span></span><span class="category">${song.category}</span><span class="time-col">${fmt(song.duration)}</span></button>`;}).join('');}
+function updatePlaying(){const playing=!audio.paused&&!audio.ended;icon($('play'),playing?'pause':'play',playing?'Pausar':'Reproducir');icon($('heroPlay'),playing?'pause':'play',playing?'Pausar playlist':'Reproducir playlist');render();}
+function duration(){return Number.isFinite(audio.duration)?audio.duration:songs[current].duration;}
+function updateTime(){progress.max=duration();progress.value=Math.min(audio.currentTime||0,duration());$('elapsed').textContent=fmt(audio.currentTime);$('duration').textContent=fmt(duration());paint(progress);}
+function load(index,autoplay=false,remember=true){if(index<0||index>=songs.length)return;if(remember&&index!==current)history.push(current);current=index;if(shuffle)queue=queue.filter(i=>i!==current);const s=songs[current];audio.src=new URL('audio/'+encodeURIComponent(s.file),document.baseURI).href;audio.load();$('nowTitle').textContent=$('playerTitle').textContent=s.title;$('nowCategory').textContent=$('playerCategory').textContent=s.category;art($('nowArt'),s);art($('playerArt'),s);progress.max=s.duration;progress.value=0;$('elapsed').textContent='0:00';$('duration').textContent=fmt(s.duration);paint(progress);updatePlaying();updateNext();if('mediaSession' in navigator&&'MediaMetadata' in window){try{navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:'Ronin',album:'Original Soundtrack'});}catch{}}if(autoplay)playAudio();}
+async function playAudio(){try{await audio.play();}catch(e){if(e.name!=='AbortError')toast(e.name==='NotAllowedError'?'Pulsa reproducir para iniciar el audio.':`No se pudo reproducir ${songs[current].file}. Comprueba que el archivo esté en la carpeta audio.`);}}
+function toggle(){if(audio.paused||audio.ended){if(audio.ended)audio.currentTime=0;playAudio();}else audio.pause();}
+function next(automatic=false){if(automatic&&repeat===2){audio.currentTime=0;playAudio();return;}let n;if(shuffle){if(!queue.length&&(repeat===1||!automatic))makeQueue();n=queue.shift();}else{n=current+1;if(n>=songs.length)n=(repeat===1||!automatic)?0:undefined;}if(n===undefined){audio.pause();updatePlaying();return;}load(n,true);}
+function previous(){if(shuffle&&history.length){const old=current;const n=history.pop();if(!queue.includes(old))queue.unshift(old);load(n,true,false);}else load((current-1+songs.length)%songs.length,true,false);}
+function seek(delta){if(audio.readyState>0){audio.currentTime=Math.max(0,Math.min(duration(),audio.currentTime+delta));updateTime();}}
+function refreshVolume(){const v=audio.muted?0:audio.volume;volume.value=v;$('volumeValue').textContent=Math.round(v*100)+'%';icon($('mute'),v===0?'mute':'volume',v===0?'Activar sonido':'Silenciar');paint(volume);}
+function setVolume(v){audio.muted=false;audio.volume=Math.max(0,Math.min(1,v));if(audio.volume>0)lastVolume=audio.volume;refreshVolume();}
+$('tracks').addEventListener('click',e=>{const row=e.target.closest('[data-index]');if(!row)return;const i=Number(row.dataset.index);if(i===current)toggle();else load(i,true);});
+$('heroPlay').addEventListener('click',toggle);$('play').addEventListener('click',toggle);$('next').addEventListener('click',()=>next());$('previous').addEventListener('click',previous);$('forward').addEventListener('click',()=>seek(10));$('back').addEventListener('click',()=>seek(-10));$('search').addEventListener('input',render);
+$('shuffle').addEventListener('click',()=>{shuffle=!shuffle;$('shuffle').setAttribute('aria-pressed',String(shuffle));history=[];if(shuffle)makeQueue();updateNext();toast(shuffle?'Reproducción aleatoria activada':'Reproducción aleatoria desactivada');});
+$('repeat').addEventListener('click',()=>{repeat=(repeat+1)%3;const label=['Repetir: desactivado','Repetir playlist','Repetir canción'][repeat];$('repeat').setAttribute('aria-pressed',String(repeat!==0));$('repeat').title=label;$('repeat').setAttribute('aria-label',label);$('repeat').querySelector('.repeat-one').hidden=repeat!==2;updateNext();toast(label);});
+$('upNext').addEventListener('click',()=>{const n=upcoming();if(n!==null){if(n===current){if(audio.readyState>0)audio.currentTime=0;playAudio();}else load(n,true);}});
+progress.addEventListener('input',()=>{if(audio.readyState>0)audio.currentTime=Number(progress.value);$('elapsed').textContent=fmt(progress.value);paint(progress);});
+volume.addEventListener('input',()=>setVolume(Number(volume.value)));$('mute').addEventListener('click',()=>{if(audio.muted||audio.volume===0)setVolume(lastVolume||.75);else{lastVolume=audio.volume;audio.muted=true;refreshVolume();}});
+audio.addEventListener('loadedmetadata',updateTime);audio.addEventListener('durationchange',updateTime);audio.addEventListener('timeupdate',updateTime);audio.addEventListener('play',updatePlaying);audio.addEventListener('playing',updatePlaying);audio.addEventListener('pause',updatePlaying);audio.addEventListener('ended',()=>next(true));audio.addEventListener('volumechange',refreshVolume);audio.addEventListener('error',()=>{toast(`No se pudo cargar ${songs[current].file}. Verifica que la carpeta audio esté completa.`);updatePlaying();});
+document.addEventListener('keydown',e=>{if(e.altKey||e.ctrlKey||e.metaKey||['INPUT','TEXTAREA','BUTTON','A'].includes(e.target.tagName))return;if(e.code==='Space'){e.preventDefault();toggle();}else if(e.key==='ArrowRight'){e.preventDefault();seek(10);}else if(e.key==='ArrowLeft'){e.preventDefault();seek(-10);}else if(e.key==='ArrowUp'){e.preventDefault();setVolume(audio.volume+.05);}else if(e.key==='ArrowDown'){e.preventDefault();setVolume(audio.volume-.05);}});
+if('mediaSession' in navigator){for(const [action,fn] of Object.entries({play:playAudio,pause:()=>audio.pause(),previoustrack:previous,nexttrack:()=>next(),seekbackward:d=>seek(-(d.seekOffset||10)),seekforward:d=>seek(d.seekOffset||10),seekto:d=>{if(audio.readyState>0)audio.currentTime=Math.max(0,Math.min(duration(),d.seekTime));}})){try{navigator.mediaSession.setActionHandler(action,fn);}catch{}}}
+const total=songs.reduce((sum,s)=>sum+s.duration,0);$('playlistMeta').textContent=`${songs.length} canciones · ${Math.floor(total/60)} min ${Math.floor(total%60)} s`;setVolume(.75);load(0,false,false);
